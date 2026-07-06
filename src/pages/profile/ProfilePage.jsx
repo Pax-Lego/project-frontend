@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getProfile, updateProfile, getWeightHistory, addWeight } from '../../api/profile'
-import { User, Scale, Flame, Target, Plus, X, ChevronDown, Beef, Wheat, Droplets } from 'lucide-react'
+import { User, Scale, Flame, Target, Plus, X } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 
 const ACTIVITY_LABELS = {
@@ -100,7 +100,6 @@ export default function ProfilePage() {
   const load = async () => {
     try {
       const [profRes, weightRes] = await Promise.all([getProfile(), getWeightHistory()])
-      const profiles = Array.isArray(profRes.data) ? profRes.data : profRes.data.results || [profRes.data]
       const p = Array.isArray(profRes.data) ? profRes.data[0] : profRes.data
       if (p) {
         setProfile(p)

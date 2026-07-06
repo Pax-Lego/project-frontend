@@ -24,7 +24,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-800">
         <h1 className="text-lg font-semibold tracking-tight">
-          Calorie <span className="text-brand-500">Tracker</span>
+          Pax-<span className="text-brand-500">Saporis</span>
         </h1>
       </div>
 

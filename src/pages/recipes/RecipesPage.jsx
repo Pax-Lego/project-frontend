@@ -15,7 +15,7 @@ function MacroChip({ icon: Icon, label, value, color }) {
   )
 }
 
-function RecipeModal({ onClose, onSave, ingredients }) {
+function RecipeModal({ onClose, onSave }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [error, setError] = useState('')
@@ -147,7 +147,9 @@ function RecipeCard({ recipe, ingredients, onDelete, onUpdate, isFav, onToggleFa
     try {
       await removeIngredientFromRecipe(recipe.id, { recipe_ingredient_id: recipeIngredientId })
       onUpdate()
-    } catch {}
+    } catch (error) {
+      console.error('Failed to remove ingredient:', error)
+    }
   }
 
   return (
@@ -295,7 +297,9 @@ export default function RecipesPage() {
     try {
       await deleteRecipe(id)
       load()
-    } catch {}
+    } catch (error) {
+      console.error('Failed to delete recipe:', error)
+    }
   }
 
   const filtered  = recipes.filter(r => r.name.toLowerCase().includes(search.toLowerCase()))
@@ -358,7 +362,15 @@ export default function RecipesPage() {
             <div className="space-y-3">
               <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 px-1">Default recipes</h2>
               {defaults.map(r => (
-                <RecipeCard key={r.id} recipe={r} ingredients={ingredients} onDelete={handleDelete} onUpdate={load} />
+                <RecipeCard
+                  key={r.id}
+                  recipe={r}
+                  ingredients={ingredients}
+                  onDelete={handleDelete}
+                  onUpdate={load}
+                  isFav={isFavRecipe(r.id)}
+                  onToggleFav={toggleFavRecipe}
+                />
               ))}
             </div>
           )}

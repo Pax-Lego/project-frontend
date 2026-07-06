@@ -35,7 +35,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Calorie <span className="text-brand-500">Tracker</span>
+            Pax-<span className="text-brand-500">Saporis</span>
           </h1>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Sign in to your account</p>
         </div>

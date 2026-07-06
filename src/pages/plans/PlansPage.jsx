@@ -114,7 +114,9 @@ function MealRow({ meal, planId, onUpdate }) {
       if (['snack', 'supplement'].includes(meal.meal_type)) body.name = meal.name
       await removeMeal(planId, body)
       onUpdate()
-    } catch {}
+    } catch (error) {
+      console.error('Failed to remove meal:', error)
+    }
   }
 
   return (
@@ -254,7 +256,10 @@ function PlanCard({ plan, recipes, onDelete, onUpdate, isFav, onToggleFav }) {
     setExpanded(e => !e)
   }
 
-  const handleUpdate = () => loadDetail()
+  const handleUpdate = () => {
+    loadDetail()
+    onUpdate?.()
+  }
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
@@ -384,7 +389,12 @@ export default function PlansPage() {
   useEffect(() => { load() }, [])
 
   const handleDelete = async (id) => {
-    try { await deletePlan(id); load() } catch {}
+    try {
+      await deletePlan(id)
+      load()
+    } catch (error) {
+      console.error('Failed to delete plan:', error)
+    }
   }
 
   return (

@@ -5,16 +5,14 @@ import { getRecipes } from '../../api/recipes'
 import { getProfile, getWeightHistory } from '../../api/profile'
 import { Link } from 'react-router-dom'
 import {
-  Flame, Beef, Wheat, Droplets, Scale,
-  Target, Apple, UtensilsCrossed, CalendarDays,
-  ArrowRight, TrendingUp
+  Flame, Apple, UtensilsCrossed, CalendarDays,
+  ArrowRight, Target, Heart
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid
 } from 'recharts'
 import { useFavorites } from '../../hooks/useFavorites'
-import { Heart } from 'lucide-react'
 
 function MacroBar({ label, current, goal, color }) {
   const pct = goal ? Math.min((current / goal) * 100, 100) : 0

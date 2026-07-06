@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getIngredients, createIngredient, updateIngredient, deleteIngredient } from '../../api/ingredients'
-import { Plus, Pencil, Trash2, X, Check, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Search } from 'lucide-react'
 import { Heart } from 'lucide-react'
 import { useFavorites } from '../../hooks/useFavorites'
 
@@ -180,7 +180,6 @@ export default function IngredientsPage() {
 const load = async () => {
   try {
     const res = await getIngredients()
-    console.log('API response:', res.data) // <- agrega esto
     const data = Array.isArray(res.data) ? res.data : res.data.results || []
     setIngredients(data)
   } finally {
