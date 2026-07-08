@@ -1,4 +1,4 @@
-# Calorie Tracker - Frontend
+# Pax-Saporis - Frontend
 
 Frontend para la aplicación de tracking de calorías de Pax-Saporis construido con React, Vite, Tailwind CSS y Zustand.
 
