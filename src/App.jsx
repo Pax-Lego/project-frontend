@@ -5,8 +5,9 @@ import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
 import IngredientsPage from './pages/ingredients/IngredientsPage'
-import RecipesPage from './pages/recipes/RecipesPage'
+import RecipesPage from './pages/recipes/RecipesPage.jsx'
 import PlansPage from './pages/plans/PlansPage'
+import ReportsPage from './pages/reports/ReportsPage'
 import ProfilePage from './pages/profile/ProfilePage'
 
 function PrivateRoute({ children }) {
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="ingredients" element={<IngredientsPage />} />
         <Route path="recipes"     element={<RecipesPage />} />
         <Route path="plans"       element={<PlansPage />} />
+        <Route path="reports"     element={<ReportsPage />} />
         <Route path="profile"     element={<ProfilePage />} />
       </Route>
     </Routes>

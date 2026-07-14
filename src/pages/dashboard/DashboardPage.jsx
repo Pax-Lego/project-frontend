@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
-import { getPlans, getPlan } from '../../api/plans'
+import { getPlans, getPlan, createPlan } from '../../api/plans'
 import { getIngredients } from '../../api/ingredients'
 import { getRecipes } from '../../api/recipes'
 import { getProfile, getWeightHistory } from '../../api/profile'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Flame, Apple, UtensilsCrossed, CalendarDays,
-  ArrowRight, Target, Heart
+  ArrowRight, Target, Heart, Plus
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, Tooltip,
@@ -83,48 +83,67 @@ function SectionHeader({ title, to }) {
   )
 }
 
+const todayISO = () => new Date().toISOString().split('T')[0]
+
 export default function DashboardPage() {
+  const navigate = useNavigate()
   const [profile,       setProfile]       = useState(null)
-  const [latestPlan,    setLatestPlan]    = useState(null)
+  const [todayPlan,     setTodayPlan]     = useState(null)
   const [planDetail,    setPlanDetail]    = useState(null)
   const [weightHistory, setWeightHistory] = useState([])
   const [counts,        setCounts]        = useState({ ingredients: 0, recipes: 0, plans: 0 })
   const [loading,       setLoading]       = useState(true)
+  const [startingLog,   setStartingLog]   = useState(false)
   const { favIngredients, favRecipes, favPlans } = useFavorites()
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [profRes, plansRes, ingRes, recRes, weightRes] = await Promise.all([
-          getProfile(),
-          getPlans(),
-          getIngredients(),
-          getRecipes(),
-          getWeightHistory(),
-        ])
+  const load = async () => {
+    try {
+      const [profRes, plansRes, todayPlansRes, ingRes, recRes, weightRes] = await Promise.all([
+        getProfile(),
+        getPlans(),
+        getPlans({ date: todayISO() }),
+        getIngredients(),
+        getRecipes(),
+        getWeightHistory(),
+      ])
 
-        const p = Array.isArray(profRes.data) ? profRes.data[0] : profRes.data
-        setProfile(p)
+      const p = Array.isArray(profRes.data) ? profRes.data[0] : profRes.data
+      setProfile(p)
 
-        const plans = Array.isArray(plansRes.data) ? plansRes.data : plansRes.data.results || []
-        const ings  = Array.isArray(ingRes.data)   ? ingRes.data   : ingRes.data.results   || []
-        const recs  = Array.isArray(recRes.data)   ? recRes.data   : recRes.data.results   || []
-        const w     = Array.isArray(weightRes.data) ? weightRes.data : weightRes.data.results || []
+      const plans      = Array.isArray(plansRes.data)      ? plansRes.data      : plansRes.data.results      || []
+      const todayPlans = Array.isArray(todayPlansRes.data)  ? todayPlansRes.data : todayPlansRes.data.results || []
+      const ings  = Array.isArray(ingRes.data)   ? ingRes.data   : ingRes.data.results   || []
+      const recs  = Array.isArray(recRes.data)   ? recRes.data   : recRes.data.results   || []
+      const w     = Array.isArray(weightRes.data) ? weightRes.data : weightRes.data.results || []
 
-        setCounts({ ingredients: ings.length, recipes: recs.length, plans: plans.length })
-        setWeightHistory(w)
+      setCounts({ ingredients: ings.length, recipes: recs.length, plans: plans.length })
+      setWeightHistory(w)
 
-        if (plans.length > 0) {
-          setLatestPlan(plans[0])
-          const detailRes = await getPlan(plans[0].id)
-          setPlanDetail(detailRes.data)
-        }
-      } finally {
-        setLoading(false)
+      if (todayPlans.length > 0) {
+        setTodayPlan(todayPlans[0])
+        const detailRes = await getPlan(todayPlans[0].id)
+        setPlanDetail(detailRes.data)
+      } else {
+        setTodayPlan(null)
+        setPlanDetail(null)
       }
+    } finally {
+      setLoading(false)
     }
-    load()
-  }, [])
+  }
+
+  useEffect(() => { load() }, [])
+
+  const handleStartTodayLog = async () => {
+    setStartingLog(true)
+    try {
+      const res = await createPlan({ name: `Registro ${todayISO()}`, date: todayISO() })
+      navigate('/plans')
+      return res
+    } finally {
+      setStartingLog(false)
+    }
+  }
 
   const macros    = profile?.recommended_macros
   const chartData = [...weightHistory].reverse().map(e => ({ date: e.date, weight: e.weight_kg }))
@@ -165,7 +184,7 @@ export default function DashboardPage() {
 
         {/* Today's macros */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-6 space-y-5">
-          <SectionHeader title={latestPlan ? `${latestPlan.name} · ${latestPlan.date}` : "Today's nutrition"} to="/plans" />
+          <SectionHeader title={todayPlan ? `${todayPlan.name} · Today` : "Today's nutrition"} to="/plans" />
 
           {/* Calories ring summary */}
           <div className="flex items-center gap-4 p-4 rounded-xl bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/30">
@@ -199,14 +218,21 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Latest plan meals */}
+        {/* Today's meals */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-6">
-          <SectionHeader title="Latest plan meals" to="/plans" />
+          <SectionHeader title="Today's meals" to="/plans" />
           {!planDetail ? (
-            <div className="flex flex-col items-center justify-center py-10 text-center space-y-2">
+            <div className="flex flex-col items-center justify-center py-10 text-center space-y-3">
               <CalendarDays size={32} className="text-gray-200 dark:text-gray-700" />
-              <p className="text-sm text-gray-400">No plans yet.</p>
-              <Link to="/plans" className="text-xs text-brand-500 hover:text-brand-600 font-medium">Create your first plan →</Link>
+              <p className="text-sm text-gray-400">No log started for today yet.</p>
+              <button
+                onClick={handleStartTodayLog}
+                disabled={startingLog}
+                className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white text-sm font-medium rounded-xl transition"
+              >
+                <Plus size={15} />
+                {startingLog ? 'Starting...' : "Start today's log"}
+              </button>
             </div>
           ) : planDetail.plan_meals?.length === 0 ? (
             <p className="text-sm text-gray-400 py-4">No meals in this plan yet.</p>

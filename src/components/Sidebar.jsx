@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import {
   LayoutDashboard, Apple, UtensilsCrossed,
-  CalendarDays, User, LogOut, Sun, Moon
+  CalendarDays, BarChart3, User, LogOut, Sun, Moon
 } from 'lucide-react'
 
 const links = [
@@ -11,6 +11,7 @@ const links = [
   { to: '/ingredients', label: 'Ingredients', icon: Apple },
   { to: '/recipes',     label: 'Recipes',     icon: UtensilsCrossed },
   { to: '/plans',       label: 'Plans',       icon: CalendarDays },
+  { to: '/reports',     label: 'Reports',     icon: BarChart3 },
   { to: '/profile',     label: 'Profile',     icon: User },
 ]
 
