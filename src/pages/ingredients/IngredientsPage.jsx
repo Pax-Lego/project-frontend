@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
 import { getIngredients, createIngredient, updateIngredient, deleteIngredient } from '../../api/ingredients'
-import { Plus, Pencil, Trash2, X, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Search, ListPlus, Check } from 'lucide-react'
 import { Heart } from 'lucide-react'
 import { useFavorites } from '../../hooks/useFavorites'
+import { useLists } from '../../hooks/useLists'
 
 const EMPTY_FORM = {
-  name: '', calories_per_100g: '', protein_g: '', carbs_g: '', fat_g: ''
+  name: '', measurement_type: 'weight',
+  calories_per_100g: '', protein_g: '', carbs_g: '', fat_g: '',
+  unit_label: '', calories_per_unit: '', protein_per_unit: '', carbs_per_unit: '', fat_per_unit: ''
 }
 
 function MacroBadge({ label, value, color }) {
@@ -27,10 +30,24 @@ function IngredientModal({ ingredient, onClose, onSave }) {
     setError('')
     setLoading(true)
     try {
+      const isUnitMode = form.measurement_type === 'unit'
+      const payload = {
+        name: form.name,
+        measurement_type: form.measurement_type,
+        calories_per_100g: isUnitMode ? null : parseFloat(form.calories_per_100g),
+        protein_g:         isUnitMode ? null : parseFloat(form.protein_g),
+        carbs_g:           isUnitMode ? null : parseFloat(form.carbs_g),
+        fat_g:              isUnitMode ? null : parseFloat(form.fat_g),
+        unit_label:         isUnitMode ? form.unit_label : null,
+        calories_per_unit:  isUnitMode ? parseFloat(form.calories_per_unit) : null,
+        protein_per_unit:   isUnitMode ? parseFloat(form.protein_per_unit) : null,
+        carbs_per_unit:     isUnitMode ? parseFloat(form.carbs_per_unit) : null,
+        fat_per_unit:       isUnitMode ? parseFloat(form.fat_per_unit) : null,
+      }
       if (ingredient) {
-        await updateIngredient(ingredient.id, form)
+        await updateIngredient(ingredient.id, payload)
       } else {
-        await createIngredient(form)
+        await createIngredient(payload)
       }
       onSave()
     } catch (err) {
@@ -56,6 +73,8 @@ function IngredientModal({ ingredient, onClose, onSave }) {
       />
     </div>
   )
+
+  const isUnit = form.measurement_type === 'unit'
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -88,13 +107,62 @@ function IngredientModal({ ingredient, onClose, onSave }) {
             />
           </div>
 
-          {field('calories_per_100g', 'Calories per 100g', '0.0')}
-
-          <div className="grid grid-cols-3 gap-3">
-            {field('protein_g', 'Protein (g)', '0.0')}
-            {field('carbs_g',   'Carbs (g)',   '0.0')}
-            {field('fat_g',     'Fat (g)',      '0.0')}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Measured by</label>
+            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
+              {[
+                { value: 'weight', label: 'Per 100g' },
+                { value: 'unit',   label: 'Per unit' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, measurement_type: opt.value }))}
+                  className={`flex-1 px-3.5 py-1.5 rounded-lg text-sm font-medium transition
+                    ${form.measurement_type === opt.value
+                      ? 'bg-white dark:bg-gray-900 text-brand-600 dark:text-brand-400 shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+                    }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {isUnit ? (
+            <>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Unit name</label>
+                <input
+                  type="text"
+                  value={form.unit_label}
+                  onChange={e => setForm(f => ({ ...f, unit_label: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition"
+                  placeholder="e.g. egg, slice"
+                  required
+                />
+              </div>
+
+              {field('calories_per_unit', 'Calories per unit', '0.0')}
+
+              <div className="grid grid-cols-3 gap-3">
+                {field('protein_per_unit', 'Protein (g)', '0.0')}
+                {field('carbs_per_unit',   'Carbs (g)',   '0.0')}
+                {field('fat_per_unit',     'Fat (g)',      '0.0')}
+              </div>
+            </>
+          ) : (
+            <>
+              {field('calories_per_100g', 'Calories per 100g', '0.0')}
+
+              <div className="grid grid-cols-3 gap-3">
+                {field('protein_g', 'Protein (g)', '0.0')}
+                {field('carbs_g',   'Carbs (g)',   '0.0')}
+                {field('fat_g',     'Fat (g)',      '0.0')}
+              </div>
+            </>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button
@@ -118,7 +186,53 @@ function IngredientModal({ ingredient, onClose, onSave }) {
   )
 }
 
-function IngredientRow({ ingredient, onEdit, onDelete, isDefault, isFav, onToggleFav }) {
+function ListPopover({ ingredient, ingredientLists, isIngredientInList, onToggle }) {
+  const [open, setOpen] = useState(false)
+  const customLists = ingredientLists.filter(l => !l.is_builtin)
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="p-2 rounded-lg text-gray-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition"
+      >
+        <ListPlus size={15} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-1 z-20 w-56 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-xl p-2 space-y-1">
+            {customLists.length === 0 ? (
+              <p className="text-xs text-gray-400 px-2 py-1.5">No lists yet. Create one first.</p>
+            ) : (
+              customLists.map(list => {
+                const active = isIngredientInList(list.id, ingredient.id)
+                return (
+                  <button
+                    key={list.id}
+                    onClick={() => onToggle(list.id, ingredient.id)}
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                  >
+                    <span className="truncate">{list.name}</span>
+                    {active && <Check size={14} className="text-brand-500 flex-shrink-0" />}
+                  </button>
+                )
+              })
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function IngredientRow({ ingredient, onEdit, onDelete, isFav, onToggleFav, ingredientLists, isIngredientInList, onToggleList }) {
+  const isUnit = ingredient.measurement_type === 'unit'
+  const calories = isUnit ? ingredient.calories_per_unit : ingredient.calories_per_100g
+  const protein  = isUnit ? ingredient.protein_per_unit  : ingredient.protein_g
+  const carbs    = isUnit ? ingredient.carbs_per_unit    : ingredient.carbs_g
+  const fat      = isUnit ? ingredient.fat_per_unit      : ingredient.fat_g
+
   return (
     <div className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition rounded-xl group">
       <div className="flex-1 min-w-0">
@@ -126,19 +240,21 @@ function IngredientRow({ ingredient, onEdit, onDelete, isDefault, isFav, onToggl
           <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
             {ingredient.name}
           </span>
-          {isDefault && (
+          {ingredient.is_default && (
             <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
               default
             </span>
           )}
         </div>
-        <span className="text-xs text-gray-400">{ingredient.calories_per_100g} kcal / 100g</span>
+        <span className="text-xs text-gray-400">
+          {calories} kcal / {isUnit ? (ingredient.unit_label || 'unit') : '100g'}
+        </span>
       </div>
 
       <div className="flex items-center gap-2">
-        <MacroBadge label="P" value={ingredient.protein_g} color="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400" />
-        <MacroBadge label="C" value={ingredient.carbs_g}   color="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400" />
-        <MacroBadge label="F" value={ingredient.fat_g}     color="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400" />
+        <MacroBadge label="P" value={protein} color="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400" />
+        <MacroBadge label="C" value={carbs}   color="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400" />
+        <MacroBadge label="F" value={fat}     color="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400" />
       </div>
 
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
@@ -152,18 +268,20 @@ function IngredientRow({ ingredient, onEdit, onDelete, isDefault, isFav, onToggl
         >
           <Heart size={15} fill={isFav ? 'currentColor' : 'none'} />
         </button>
-        {!isDefault && (
-          <>
-            <button onClick={() => onEdit(ingredient)}
-              className="p-2 rounded-lg text-gray-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition">
-              <Pencil size={15} />
-            </button>
-            <button onClick={() => onDelete(ingredient)}
-              className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition">
-              <Trash2 size={15} />
-            </button>
-          </>
-        )}
+        <ListPopover
+          ingredient={ingredient}
+          ingredientLists={ingredientLists}
+          isIngredientInList={isIngredientInList}
+          onToggle={onToggleList}
+        />
+        <button onClick={() => onEdit(ingredient)}
+          className="p-2 rounded-lg text-gray-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition">
+          <Pencil size={15} />
+        </button>
+        <button onClick={() => onDelete(ingredient)}
+          className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition">
+          <Trash2 size={15} />
+        </button>
       </div>
     </div>
   )
@@ -175,17 +293,24 @@ export default function IngredientsPage() {
   const [search, setSearch]           = useState('')
   const [modal, setModal]             = useState(null) // null | 'create' | ingredient object
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [activeListId, setActiveListId] = useState('all')
+  const [showNewList, setShowNewList] = useState(false)
+  const [newListName, setNewListName] = useState('')
   const { isFavIngredient, toggleFavIngredient } = useFavorites()
+  const {
+    ingredientLists, listsForIngredient, isIngredientInList,
+    toggleIngredientInList, addNewIngredientList,
+  } = useLists()
 
-const load = async () => {
-  try {
-    const res = await getIngredients()
-    const data = Array.isArray(res.data) ? res.data : res.data.results || []
-    setIngredients(data)
-  } finally {
-    setLoading(false)
+  const load = async () => {
+    try {
+      const res = await getIngredients()
+      const data = Array.isArray(res.data) ? res.data : res.data.results || []
+      setIngredients(data)
+    } finally {
+      setLoading(false)
+    }
   }
-}
 
   useEffect(() => { load() }, [])
 
@@ -199,12 +324,16 @@ const load = async () => {
     }
   }
 
-  const filtered = ingredients.filter(i =>
-    i.name.toLowerCase().includes(search.toLowerCase())
-  )
+  const handleCreateList = async () => {
+    if (!newListName.trim()) return
+    await addNewIngredientList(newListName.trim())
+    setNewListName('')
+    setShowNewList(false)
+  }
 
-  const defaults = filtered.filter(i => i.is_default)
-  const mine     = filtered.filter(i => !i.is_default)
+  const filtered = ingredients
+    .filter(i => i.name.toLowerCase().includes(search.toLowerCase()))
+    .filter(i => activeListId === 'all' || listsForIngredient(i.id).some(l => l.id === activeListId))
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -236,57 +365,86 @@ const load = async () => {
         />
       </div>
 
+      {/* List filter pills */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => setActiveListId('all')}
+          className={`px-3 py-1.5 rounded-full text-sm font-medium border transition
+            ${activeListId === 'all'
+              ? 'bg-brand-500 border-brand-500 text-white'
+              : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-brand-500 hover:text-brand-500'
+            }`}
+        >
+          All
+        </button>
+        {ingredientLists.map(list => (
+          <button
+            key={list.id}
+            onClick={() => setActiveListId(list.id)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition
+              ${activeListId === list.id
+                ? 'bg-brand-500 border-brand-500 text-white'
+                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-brand-500 hover:text-brand-500'
+              }`}
+          >
+            {list.name} <span className="opacity-60">{list.ingredient_count}</span>
+          </button>
+        ))}
+
+        {showNewList ? (
+          <div className="flex items-center gap-1">
+            <input
+              type="text"
+              autoFocus
+              value={newListName}
+              onChange={e => setNewListName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreateList()}
+              placeholder="List name..."
+              className="w-32 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-transparent text-sm outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition"
+            />
+            <button onClick={handleCreateList} className="p-1.5 rounded-full text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition">
+              <Check size={15} />
+            </button>
+            <button onClick={() => { setShowNewList(false); setNewListName('') }} className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+              <X size={15} />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowNewList(true)}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium border border-dashed border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-brand-500 hover:text-brand-500 transition"
+          >
+            <Plus size={13} />
+            New list
+          </button>
+        )}
+      </div>
+
       {loading ? (
         <div className="flex justify-center py-20">
           <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
         <div className="space-y-6">
-          {/* My ingredients */}
-          {mine.length > 0 && (
+          {filtered.length > 0 ? (
             <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
-              <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">My ingredients</h2>
-              </div>
               <div className="divide-y divide-gray-50 dark:divide-gray-800/50">
-                {mine.map(i => (
+                {filtered.map(i => (
                   <IngredientRow
                     key={i.id}
                     ingredient={i}
-                    isDefault={i.is_default}
                     isFav={isFavIngredient(i.id)}
                     onToggleFav={toggleFavIngredient}
                     onEdit={setModal}
                     onDelete={setDeleteTarget}
-/>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Default ingredients */}
-          {defaults.length > 0 && (
-            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
-              <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Default ingredients</h2>
-              </div>
-              <div className="divide-y divide-gray-50 dark:divide-gray-800/50">
-                {defaults.map(i => (
-                  <IngredientRow
-                    key={i.id}
-                    ingredient={i}
-                    isDefault={i.is_default}
-                    isFav={isFavIngredient(i.id)}
-                    onToggleFav={toggleFavIngredient}
-                    onEdit={setModal}
-                    onDelete={setDeleteTarget}
+                    ingredientLists={ingredientLists}
+                    isIngredientInList={isIngredientInList}
+                    onToggleList={toggleIngredientInList}
                   />
                 ))}
               </div>
             </div>
-          )}
-
-          {filtered.length === 0 && (
+          ) : (
             <div className="text-center py-20 text-gray-400 text-sm">
               No ingredients found.
             </div>

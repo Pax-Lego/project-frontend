@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { getRecipes, createRecipe, deleteRecipe, addIngredientToRecipe, removeIngredientFromRecipe } from '../../api/recipes'
 import { getIngredients } from '../../api/ingredients'
-import { Plus, Trash2, X, Search, ChevronDown, ChevronUp, Flame, Beef, Wheat, Droplets } from 'lucide-react'
+import { Plus, Trash2, X, Search, ChevronDown, ChevronUp, Flame, Beef, Wheat, Droplets, ListPlus, Check } from 'lucide-react'
 import { Heart } from 'lucide-react'
 import { useFavorites } from '../../hooks/useFavorites'
+import { useLists } from '../../hooks/useLists'
 
 function MacroChip({ icon: Icon, label, value, color }) {
   return (
@@ -91,13 +92,17 @@ function AddIngredientRow({ recipeId, ingredients, onAdded }) {
   const [quantity, setQuantity] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const selectedIngredient = ingredients.find(i => String(i.id) === String(selectedId))
+  const isUnit = selectedIngredient?.measurement_type === 'unit'
+  const quantityPlaceholder = isUnit ? (selectedIngredient.unit_label || 'units') : 'g'
+
   const handleAdd = async () => {
     if (!selectedId || !quantity) return
     setLoading(true)
     try {
       await addIngredientToRecipe(recipeId, {
         ingredient_id: parseInt(selectedId),
-        quantity_g: parseFloat(quantity)
+        quantity: parseFloat(quantity)
       })
       setSelectedId('')
       setQuantity('')
@@ -123,7 +128,7 @@ function AddIngredientRow({ recipeId, ingredients, onAdded }) {
         type="number"
         value={quantity}
         onChange={e => setQuantity(e.target.value)}
-        placeholder="g"
+        placeholder={quantityPlaceholder}
         min="0"
         step="0.1"
         className="w-24 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition"
@@ -139,7 +144,47 @@ function AddIngredientRow({ recipeId, ingredients, onAdded }) {
   )
 }
 
-function RecipeCard({ recipe, ingredients, onDelete, onUpdate, isFav, onToggleFav }) {
+function ListPopover({ recipe, recipeLists, isRecipeInList, onToggle }) {
+  const [open, setOpen] = useState(false)
+  const customLists = recipeLists.filter(l => !l.is_builtin)
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="p-2 rounded-lg text-gray-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition"
+      >
+        <ListPlus size={15} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-1 z-20 w-56 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-xl p-2 space-y-1">
+            {customLists.length === 0 ? (
+              <p className="text-xs text-gray-400 px-2 py-1.5">No lists yet. Create one first.</p>
+            ) : (
+              customLists.map(list => {
+                const active = isRecipeInList(list.id, recipe.id)
+                return (
+                  <button
+                    key={list.id}
+                    onClick={() => onToggle(list.id, recipe.id)}
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                  >
+                    <span className="truncate">{list.name}</span>
+                    {active && <Check size={14} className="text-brand-500 flex-shrink-0" />}
+                  </button>
+                )
+              })
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function RecipeCard({ recipe, ingredients, onDelete, onUpdate, isFav, onToggleFav, recipeLists, isRecipeInList, onToggleList }) {
   const [expanded, setExpanded] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
 
@@ -168,14 +213,18 @@ function RecipeCard({ recipe, ingredients, onDelete, onUpdate, isFav, onToggleFa
           )}
         </div>
         <div className="flex items-center gap-1">
-          {!recipe.is_default && (
-            <button
-              onClick={() => setDeleteConfirm(true)}
-              className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
-            >
-              <Trash2 size={15} />
-            </button>
-          )}
+          <ListPopover
+            recipe={recipe}
+            recipeLists={recipeLists}
+            isRecipeInList={isRecipeInList}
+            onToggle={onToggleList}
+          />
+          <button
+            onClick={() => setDeleteConfirm(true)}
+            className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+          >
+            <Trash2 size={15} />
+          </button>
           <button
             onClick={() => setExpanded(e => !e)}
             className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
@@ -211,30 +260,30 @@ function RecipeCard({ recipe, ingredients, onDelete, onUpdate, isFav, onToggleFa
               <div key={ri.id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 group transition">
                 <div>
                   <span className="text-sm text-gray-800 dark:text-gray-200">{ri.ingredient_name}</span>
-                  <span className="text-xs text-gray-400 ml-2">{ri.quantity_g}g</span>
+                  <span className="text-xs text-gray-400 ml-2">
+                    {ri.measurement_type === 'unit'
+                      ? `${ri.quantity} × ${ri.unit_label || 'unit'}`
+                      : `${ri.quantity}g`}
+                  </span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-gray-400">{ri.calories?.toFixed(1)} kcal</span>
-                  {!recipe.is_default && (
-                    <button
-                      onClick={() => handleRemoveIngredient(ri.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-red-500 transition"
-                    >
-                      <X size={13} />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handleRemoveIngredient(ri.id)}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-red-500 transition"
+                  >
+                    <X size={13} />
+                  </button>
                 </div>
               </div>
             ))}
           </div>
 
-          {!recipe.is_default && (
-            <AddIngredientRow
-              recipeId={recipe.id}
-              ingredients={ingredients}
-              onAdded={onUpdate}
-            />
-          )}
+          <AddIngredientRow
+            recipeId={recipe.id}
+            ingredients={ingredients}
+            onAdded={onUpdate}
+          />
         </div>
       )}
 
@@ -276,8 +325,14 @@ export default function RecipesPage() {
   const [loading, setLoading]         = useState(true)
   const [search, setSearch]           = useState('')
   const [showModal, setShowModal]     = useState(false)
+  const [activeListId, setActiveListId] = useState('all')
+  const [showNewList, setShowNewList] = useState(false)
+  const [newListName, setNewListName] = useState('')
   const { isFavRecipe, toggleFavRecipe } = useFavorites()
-  
+  const {
+    recipeLists, listsForRecipe, isRecipeInList,
+    toggleRecipeInList, addNewRecipeList,
+  } = useLists()
 
   const load = async () => {
     try {
@@ -302,9 +357,16 @@ export default function RecipesPage() {
     }
   }
 
-  const filtered  = recipes.filter(r => r.name.toLowerCase().includes(search.toLowerCase()))
-  const defaults  = filtered.filter(r => r.is_default)
-  const mine      = filtered.filter(r => !r.is_default)
+  const handleCreateList = async () => {
+    if (!newListName.trim()) return
+    await addNewRecipeList(newListName.trim())
+    setNewListName('')
+    setShowNewList(false)
+  }
+
+  const filtered = recipes
+    .filter(r => r.name.toLowerCase().includes(search.toLowerCase()))
+    .filter(r => activeListId === 'all' || listsForRecipe(r.id).some(l => l.id === activeListId))
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -335,16 +397,70 @@ export default function RecipesPage() {
         />
       </div>
 
+      {/* List filter pills */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => setActiveListId('all')}
+          className={`px-3 py-1.5 rounded-full text-sm font-medium border transition
+            ${activeListId === 'all'
+              ? 'bg-brand-500 border-brand-500 text-white'
+              : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-brand-500 hover:text-brand-500'
+            }`}
+        >
+          All
+        </button>
+        {recipeLists.map(list => (
+          <button
+            key={list.id}
+            onClick={() => setActiveListId(list.id)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition
+              ${activeListId === list.id
+                ? 'bg-brand-500 border-brand-500 text-white'
+                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-brand-500 hover:text-brand-500'
+              }`}
+          >
+            {list.name} <span className="opacity-60">{list.recipe_count}</span>
+          </button>
+        ))}
+
+        {showNewList ? (
+          <div className="flex items-center gap-1">
+            <input
+              type="text"
+              autoFocus
+              value={newListName}
+              onChange={e => setNewListName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreateList()}
+              placeholder="List name..."
+              className="w-32 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-transparent text-sm outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition"
+            />
+            <button onClick={handleCreateList} className="p-1.5 rounded-full text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition">
+              <Check size={15} />
+            </button>
+            <button onClick={() => { setShowNewList(false); setNewListName('') }} className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+              <X size={15} />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowNewList(true)}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium border border-dashed border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-brand-500 hover:text-brand-500 transition"
+          >
+            <Plus size={13} />
+            New list
+          </button>
+        )}
+      </div>
+
       {loading ? (
         <div className="flex justify-center py-20">
           <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
         <div className="space-y-6">
-          {mine.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 px-1">My recipes</h2>
-              {mine.map(r => (
+          {filtered.length > 0 ? (
+            <div className="space-y-4">
+              {filtered.map(r => (
                 <RecipeCard
                   key={r.id}
                   recipe={r}
@@ -353,29 +469,13 @@ export default function RecipesPage() {
                   onUpdate={load}
                   isFav={isFavRecipe(r.id)}
                   onToggleFav={toggleFavRecipe}
+                  recipeLists={recipeLists}
+                  isRecipeInList={isRecipeInList}
+                  onToggleList={toggleRecipeInList}
                 />
               ))}
             </div>
-          )}
-
-          {defaults.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 px-1">Default recipes</h2>
-              {defaults.map(r => (
-                <RecipeCard
-                  key={r.id}
-                  recipe={r}
-                  ingredients={ingredients}
-                  onDelete={handleDelete}
-                  onUpdate={load}
-                  isFav={isFavRecipe(r.id)}
-                  onToggleFav={toggleFavRecipe}
-                />
-              ))}
-            </div>
-          )}
-
-          {filtered.length === 0 && (
+          ) : (
             <div className="text-center py-20 text-gray-400 text-sm">No recipes found.</div>
           )}
         </div>
