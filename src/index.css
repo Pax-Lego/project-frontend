@@ -23,7 +23,7 @@
   letter-spacing: 0.18px;
   color-scheme: light dark;
   color: var(--text);
-  background: var(--bg);
+  background-color: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -58,6 +58,28 @@ body {
   margin: 0;
 }
 
+/* Fondo estático con patrón de iconos de comida (fijo, no se mueve al scrollear) */
+html {
+  background-color: #faf9f7;
+  background-image:
+    linear-gradient(135deg, rgba(248, 247, 244, 0.92) 0%, rgba(240, 235, 229, 0.92) 50%, rgba(232, 221, 247, 0.92) 100%),
+    url("/food-pattern-light.svg");
+  background-size: auto, 400px 400px;
+  background-attachment: fixed, fixed;
+  background-repeat: no-repeat, repeat;
+  position: relative;
+}
+
+html.dark {
+  background-color: #1a1622;
+  background-image:
+    linear-gradient(135deg, rgba(26, 22, 34, 0.92) 0%, rgba(42, 31, 53, 0.92) 50%, rgba(52, 40, 69, 0.92) 100%),
+    url("/food-pattern-dark.svg");
+  background-size: auto, 400px 400px;
+  background-attachment: fixed, fixed;
+  background-repeat: no-repeat, repeat;
+}
+
 #root {
   width: 1126px;
   max-width: 100%;
@@ -68,6 +90,8 @@ body {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }
 
 h1,
